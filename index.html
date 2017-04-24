@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>五子棋</title>
+	<style>
+		* {
+			padding: 0;
+			margin: 0;
+			list-style: none;
+			font-family: Arial,'微软雅黑';
+			font-weight: bold;
+			font-size: 20px;
+		}
+		#chessBoard{
+			background: orange url(images/chessboard.png) no-repeat top left;
+			width: 1200px;
+			height: 800px;
+			background-size: 800px;
+			margin: 0 auto;
+			position: relative;
+		}
+		li{
+			width: 30px;
+			height: 30px;
+			position: absolute;
+			transform: translate(25px,25px);
+		}
+		.black{
+			background: url(images/black.png) no-repeat;
+			background-size: contain;
+		}
+		.white{
+			background: url(images/white.png) no-repeat;
+			background-size: contain;
+		}
+		/*
+		**************************************************
+		 */
+		#control{
+			width: 400px;
+			height: 800px;
+			box-sizing: border-box;
+			border: 35px solid red;
+			position: absolute;
+			top: 0;right: 0;
+			border-image: url(images/chessboard.png) 61 round;
+			background: url(images/bg.png);
+			background-size: 1px;
+			text-align: center;
+		}
+		#control div{
+			width: 200px;
+			height: 200px;
+			border: 5px solid #000;
+			margin: 40px auto;
+			border-radius: 50px;
+			opacity: .6;
+			text-align: left;
+			padding: 20px;
+		}
+		#control .score{
+			font-size: 40px;
+			text-align: center;
+			color: #FFF;
+			line-height: 85px;
+		}
+		#control button{
+			width: 200px;
+			height: 50px;
+			border: 5px solid #000;
+			background: transparent;
+			margin-top: 40px;
+			opacity: .6;
+			outline: none;
+			box-shadow: 1px 1px 2px #FFF;
+			border-radius: 50px;
+			transition: box-shadow .2s linear;
+		}
+		#control button:hover{
+			box-shadow: 0 0 2px 2px #FFF;
+			color: #FFF;
+		}
+		#chess{
+			color: #FFF;
+			border-top: 5px dashed rgba(0,0,0,.6);
+			border-bottom: 5px solid rgba(0,0,0,.6);
+			line-height: 80px;
+		}
+	</style>
+</head>
+<body>
+
+	<div id="chessBoard">
+		<div id="control">
+			<div>
+				<p>Black Score:</p>
+				<p id="scoreBlack" class="score">???</p>
+				<p>White Score:</p>
+				<p id="scoreWhite" class="score">???</p>
+			</div>
+			<p id="chess">Black Chess</p>
+			<button>Start</button>
+			<button>ReStrat</button>
+			<button>ClearScore</button>
+		</div>
+	</div>
+
+	<script>
+		//-----------------------------------------------
+		//主体加载
+		//
+		window.onload = function(){
+			creatChessBoard();//坐标系初始化
+			offset();//先行设置一次坐标系
+			window.onresize = function(){
+				//当浏览器大小变动时才会触发
+				//重新根据浏览器设置惜新的坐标系
+				offset();
+			};
+			//获取操作按钮
+			var btns = document.getElementById('control').getElementsByTagName('button');
+			for (var i = btns.length - 1; i >= 0; i--) {
+				btns[i].onclick = function(){
+					btnClick(this);
+				}
+			}
+		}
+
+		//-----------------------------------------------
+		//玩法自定义
+		//
+		var scoreBlack,scoreWhite;//得分
+		var chess;//行动提示
+		
+		
+		function btnClick(e){
+			switch(e.innerHTML){
+				case 'Start':
+					start();
+					break;
+				case 'ReStrat':
+					if(isStart) reStart();
+					break;
+				case 'ClearScore':
+					if(isStart) cleartScore();
+					break;
+				case '':
+					break;
+				default:
+					break;
+			}
+		}
+		//Start
+		var isStart = false;
+		function start(){
+			if(!isStart){
+				isStart = true;
+				chessBoard.onclick = function(){//点击事件
+					chessBoardClick(event);
+				}
+				//黑白得分
+				scoreBlack = document.getElementById('scoreBlack');
+				scoreWhite = document.getElementById('scoreWhite');
+				//获取提示文本
+				chess = document.getElementById('chess');
+
+				scoreBlack.innerHTML = 0;
+				scoreWhite.innerHTML = 0;
+			}
+		}
+		//ReStart 重新开始
+		function reStart(){
+			creatChessBoard();
+			clickCount = 1;
+			var lis = chessBoard.getElementsByTagName('li');
+			for (var i = lis.length - 1; i >= 0; i--) {
+				chessBoard.removeChild(lis[i]);
+			}
+			chessBoard.onclick = function(){
+				chessBoardClick(event);
+			}
+			chess.innerHTML = 'Black Chess';
+		}
+		//ClearScore 清空所有分数并重新开始
+		function cleartScore(){
+			reStart();
+			scoreBlack.innerHTML = 0;
+			scoreWhite.innerHTML = 0;
+		}
+		function Win(score){
+			score.innerHTML = score.innerHTML*1 + 1;
+			chess.innerHTML = score == scoreWhite ? 'White Win':'Black Win';
+			chessBoard.onclick = function(){
+			}
+		}
+
+
+		//-----------------------------------------------
+		//主体参数
+		//
+		//棋盘点击事件
+		var clickCount = 1;
+		function chessBoardClick(e){
+			var x = e.clientX - minX;
+			var y = e.clientY - minY;
+				console.log(x,y);
+			if((x >= 0 && x <= cellSize*18) && (y >= 0 && y <= cellSize*18)){
+				//---------------------------------------
+				//当点击区域在规定棋盘内时
+				x = Math.round(x/cellSize);//
+				y = Math.round(y/cellSize);
+				console.log(x,y);
+				if(!chessBoardPosition[x][y]){
+					if(clickCount % 2 == 1){
+						if(creatPiece([x,y],'black')){
+							Win(scoreBlack);
+						}else{
+							chess.innerHTML = 'White Chess';
+						}
+					}else{
+						if(creatPiece([x,y],'white')){
+							Win(scoreWhite);
+						}else{
+							chess.innerHTML = 'Black Chess';
+						}
+					}
+					clickCount++;
+				}else{
+					console.log('该位置已有棋子');
+				}
+			}
+		}
+		var chessBoard = document.getElementById('chessBoard');//棋盘 80x80 格子50x50   row 18 col 18
+		var chessBoardPosition;//棋盘坐标系
+		var Piece = function(){//棋子初始化
+			this.X;
+			this.Y;
+			this.color;
+			this.obj;
+			//棋子位置定位
+			this.setPiece = function(position,color){
+				this.X = position[0];
+				this.Y = position[1];
+				this.obj.style.left = this.X * cellSize + 'px';
+				this.obj.style.top = this.Y * cellSize + 'px';
+				this.obj.className = color;
+				this.color = color;
+				chessBoardPosition[this.X][this.Y] = this;
+				return this.isWin();
+			}
+			this.isWin = function(){
+				if(this.row() || this.col() || this.skew()){
+					return true;
+				}
+				return false;
+			}
+			//横向判断
+			this.row = function(){
+				var count = 0;
+				for(var i = this.X - 4; i <= this.X + 4; i++){
+					if(i >= 0 && i <= 18){
+						if(chessBoardPosition[i][this.Y] && (chessBoardPosition[i][this.Y].color == this.color)){
+							count++;
+							if(count >= 5) return true;
+						}else{
+							count = 0;
+						}
+					}
+				}
+			}
+			//纵向判断
+			this.col = function(){
+				var count = 0;
+				for(var i = this.Y - 4; i <= this.Y + 4; i++){
+					if(i >= 0 && i <= 18){
+						if(chessBoardPosition[this.X][i] && (chessBoardPosition[this.X][i].color == this.color)){
+							count++;
+							if(count >= 5) return true;
+						}else{
+							count = 0;
+						}
+					}
+				}
+			}
+			//X双向判断
+			this.skew = function(){
+				var count = 0;
+				for(var i = - 4; i <= 4; i++){
+					var x = this.X + i;
+					var y = this.Y + i;
+					if(x >= 0 && x <= 18){
+						if(chessBoardPosition[x][y] && (chessBoardPosition[x][y].color == this.color)){
+							count++;
+							if(count >= 5) return true;
+						}else{
+							count = 0;
+						}
+					}
+				}
+				for(var i = - 4; i <= 4; i++){
+					var x = this.X + i;
+					var y = this.Y - i;
+					if(x >= 0 && x <= 18){
+						if(chessBoardPosition[x][y] && (chessBoardPosition[x][y].color == this.color)){
+							count++;
+							if(count >= 5) return true;
+						}else{
+							count = 0;
+						}
+					}
+				}
+			}
+		}
+
+		//生成棋子
+		function creatPiece(position,color){
+			var p = new Piece();
+			p.obj = document.createElement('li');
+			chessBoard.appendChild(p.obj);
+			if(p.setPiece(position,color)) return true;
+		}
+
+		//创建棋盘
+		function creatChessBoard(){
+			chessBoardPosition = new Array();
+			for (var i = 0; i <= 18; i++) {
+				chessBoardPosition[i] = new Array();
+			}
+		}
+
+		//告诉计算器棋盘大小
+		var minX,minY,maxX,maxY;
+		var cellSize = 40;
+		function offset(){
+			var offsetX = chessBoard.offsetLeft;
+			var offsetY = chessBoard.offsetTop;
+			minX = cellSize + offsetX;
+			minY = cellSize + offsetY;
+			maxX = minX + cellSize * 18;
+			maxY = minY + cellSize * 18;
+		};
+
+	</script>
+</body>
+</html>
